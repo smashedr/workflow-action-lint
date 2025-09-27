@@ -39,8 +39,13 @@ runs:
   # noinspection YAMLSchemaValidation
   using: "composite"
   steps:
-    - name: "Checkout"
-      uses: actions/checkout@v5
+    #- name: "Checkout"
+    #  uses: actions/checkout@v5
+
+    - name: "Debug"
+      if: ${{ !cancelled() }}
+      run: |
+        ls -lah .
 
     - name: "Setup Node"
       if: ${{ !cancelled() && inputs.setup != 'false' }}
