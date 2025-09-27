@@ -44,6 +44,7 @@ runs:
 
     - name: "Debug"
       if: ${{ !cancelled() }}
+      shell: bash
       run: |
         ls -lah .
 
@@ -56,24 +57,28 @@ runs:
     - name: "Install"
       id: install
       if: ${{ !cancelled() && inputs.install != 'false' }}
+      shell: bash
       run: |
         ${{ inputs.install }}
 
     - name: "Check Action File"
       id: actionfile
       if: ${{ !cancelled() && inputs.actionfile != 'false' }}
+      shell: bash
       run: |
         yq -e '.runs.main | test("^dist/")' ${{ inputs.actionfile }}
 
     - name: "ESLint"
       id: eslint
       if: ${{ !cancelled() && inputs.eslint != 'false' }}
+      shell: bash
       run: |
         ${{ inputs.eslint }}
 
     - name: "Prettier"
       id: prettier
       if: ${{ !cancelled() && inputs.prettier != 'false' }}
+      shell: bash
       run: |
         ${{ inputs.prettier }}
 
@@ -82,6 +87,7 @@ runs:
       if: ${{ !cancelled() && inputs.yamllint != 'false' }}
       env:
         CONFIG: "{extends: relaxed, ignore: [node_modules/], rules: {line-length: {max: 119}}}"
+      shell: bash
       run: |
         echo "::group::List Files"
         yamllint -d '${{ env.CONFIG }}' --list-files .
@@ -91,6 +97,7 @@ runs:
     - name: "Actionlint"
       id: actionlint
       if: ${{ !cancelled() && inputs.actionlint != 'false' }}
+      shell: bash
       run: |
         echo "::group::Download"
         loc=$(curl -sI https://github.com/rhysd/actionlint/releases/latest | grep -i '^location:')
