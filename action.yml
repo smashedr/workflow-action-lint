@@ -1,0 +1,111 @@
+name: "Action Lint Workflow"
+description: "GitHub Actions Lint Composite Workflow for CSSNR"
+
+inputs:
+  setup:
+    description: "Setup Node"
+    required: false
+    default: "24"
+  install:
+    description: "Install"
+    required: false
+    default: "npm ci"
+  actionfile:
+    description: "Action File"
+    required: false
+    default: "action.yml"
+  eslint:
+    description: "ESLint"
+    required: false
+    default: "npm run lint:report"
+  prettier:
+    description: "Prettier"
+    required: false
+    default: "npm run prettier:check"
+  yamllint:
+    description: "Yamllint"
+    required: false
+    default: "true"
+  actionlint:
+    description: "Actionlint"
+    required: false
+    default: "true"
+  checkbuild:
+    description: "Check Build"
+    required: false
+    default: "true"
+
+runs:
+  # noinspection YAMLSchemaValidation
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v5
+
+    - name: "Setup Node"
+      if: ${{ !cancelled() && inputs.setup != 'false' }}
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.setup }}
+
+    - name: "Install"
+      id: install
+      if: ${{ !cancelled() && inputs.install != 'false' }}
+      run: |
+        ${{ inputs.install }}
+
+    - name: "Check Action File"
+      id: actionfile
+      if: ${{ !cancelled() && inputs.actionfile != 'false' }}
+      run: |
+        yq -e '.runs.main | test("^dist/")' ${{ inputs.actionfile }}
+
+    - name: "ESLint"
+      id: eslint
+      if: ${{ !cancelled() && inputs.eslint != 'false' }}
+      run: |
+        ${{ inputs.eslint }}
+
+    - name: "Prettier"
+      id: prettier
+      if: ${{ !cancelled() && inputs.prettier != 'false' }}
+      run: |
+        ${{ inputs.prettier }}
+
+    - name: "Yamllint"
+      id: yamllint
+      if: ${{ !cancelled() && inputs.yamllint != 'false' }}
+      env:
+        CONFIG: "{extends: relaxed, ignore: [node_modules/], rules: {line-length: {max: 119}}}"
+      run: |
+        echo "::group::List Files"
+        yamllint -d '${{ env.CONFIG }}' --list-files .
+        echo "::endgroup::"
+        yamllint -d '${{ env.CONFIG }}' .
+
+    - name: "Actionlint"
+      id: actionlint
+      if: ${{ !cancelled() && inputs.actionlint != 'false' }}
+      run: |
+        echo "::group::Download"
+        loc=$(curl -sI https://github.com/rhysd/actionlint/releases/latest | grep -i '^location:')
+        echo "loc: ${loc}"
+        tag=$(echo "${loc}" | sed -E 's|.*/tag/v?(.*)|\1|' | tr -d '\t\r\n')
+        echo "tag: ${tag}"
+        url="https://github.com/rhysd/actionlint/releases/latest/download/actionlint_${tag}_linux_amd64.tar.gz"
+        echo "url: ${url}"
+        curl -sL "${url}" | tar xz -C "${RUNNER_TEMP}" actionlint
+        file "${RUNNER_TEMP}/actionlint"
+        "${RUNNER_TEMP}/actionlint" --version
+        echo "::endgroup::"
+        "${RUNNER_TEMP}/actionlint" -color -verbose -shellcheck= -pyflakes=
+
+    - name: "Check Build Action"
+      id: checkbuild
+      if: ${{ !cancelled() && inputs.checkbuild != 'false' }}
+      uses: cssnr/check-build-action@v1
+
+    - name: "ESLint Annotate"
+      if: ${{ !cancelled() && steps.eslint.outcome != 'success' }}
+      continue-on-error: true
+      uses: ataylorme/eslint-annotate-action@v3
